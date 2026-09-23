@@ -24,8 +24,10 @@ local function Print(msg)
     DEFAULT_CHAT_FRAME:AddMessage("|cff66ff66Food Optimizer:|r " .. msg)
 end
 
--- Container API compatibility (C_Container on modern clients, globals otherwise)
+-- API compatibility (C_Container / C_Item on modern clients, globals otherwise)
 local GetNumSlots = (C_Container and C_Container.GetContainerNumSlots) or GetContainerNumSlots
+local GetItemInfoInstant = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
+local GetItemInfo = (C_Item and C_Item.GetItemInfo) or GetItemInfo
 
 local function GetSlotInfo(bag, slot)
     if C_Container and C_Container.GetContainerItemInfo then
