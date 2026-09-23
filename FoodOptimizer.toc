@@ -1,0 +1,8 @@
+## Interface: 11507, 11508
+## Title: Food Optimizer
+## Notes: Eats the food you have the fewest of first (frees bag space), then the lowest-healing one.
+## Author: lucas
+## Version: 1.0.0
+## SavedVariables: FoodOptimizerDB
+
+FoodOptimizer.lua
