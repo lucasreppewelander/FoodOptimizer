@@ -13,6 +13,7 @@ By default it eats the food you have the **fewest** of first. That stack runs ou
 - **Your own order:** open the panel with `/fo` and move items up or down with the arrows. Your order is saved.
 - **Never use an item:** untick **Use** to keep something out of rotation, such as buff food you're saving for a raid.
 - **Separate food and drink**, each with its own tab, button and macro.
+- **Movable on-screen buttons:** drag the handle above them to put them anywhere, then lock them in place from the panel.
 - **Action bar macros:** one click creates a macro. The action bar button always shows the icon, tooltip and count of what it will eat next.
 
 ![Macro on the action bar](screenshots/macro-button.png)
@@ -36,12 +37,17 @@ If the addon shows as out of date, tick **Load out of date AddOns** on the chara
 
 The addon keeps the macros up to date as your bags change. Macros can't be changed during combat, so any changes made in combat apply as soon as the fight ends.
 
+### Moving the on-screen buttons
+
+While the buttons are unlocked, a **Drag** handle sits above them. Left-drag the handle, or right-drag either button, to move both buttons together. Tick **Lock button position** in the panel, or type `/fo lock`, to hide the handle and keep them in place. You can't move them during combat.
+
 ### Slash commands
 
 | Command | Description |
 | --- | --- |
 | `/fo` | Open or close the order panel |
 | `/fo show` / `/fo hide` | Show or hide the small on-screen buttons |
+| `/fo lock` / `/fo unlock` | Lock or unlock the on-screen buttons' position |
 | `/fo reset` | Move the on-screen buttons back to their default spot |
 
 ### Manual macros

@@ -13,9 +13,9 @@ local CONSUMABLE_CLASS_ID = (Enum and Enum.ItemClass and Enum.ItemClass.Consumab
 
 local CATEGORIES = {
     { key = "food",  label = "Food",  stat = "hp",   statLabel = "health",
-      buttonName = "FoodOptimizerFoodButton",  macroName = "FO Food",  defaultX = -20 },
+      buttonName = "FoodOptimizerFoodButton",  macroName = "FO Food" },
     { key = "drink", label = "Drink", stat = "mana", statLabel = "mana",
-      buttonName = "FoodOptimizerDrinkButton", macroName = "FO Drink", defaultX = 20 },
+      buttonName = "FoodOptimizerDrinkButton", macroName = "FO Drink" },
 }
 
 local DB -- FoodOptimizerDB, set on ADDON_LOADED
@@ -206,23 +206,72 @@ local buttons = {}
 local pendingUpdate = false
 local UpdateMacros -- defined in the Macros section
 
-local function RestorePosition(cat)
-    local button = buttons[cat.key]
-    local p = DB.points[cat.key]
-    button:ClearAllPoints()
-    if p then
-        button:SetPoint(p[1], UIParent, p[2], p[3], p[4])
-    else
-        button:SetPoint("CENTER", UIParent, "CENTER", cat.defaultX, -150)
+local BUTTON_SIZE, BUTTON_GAP = 36, 4
+
+-- Holder for the buttons; moving it moves them all together
+local anchor = CreateFrame("Frame", "FoodOptimizerAnchor", UIParent)
+anchor:SetSize(#CATEGORIES * BUTTON_SIZE + (#CATEGORIES - 1) * BUTTON_GAP, BUTTON_SIZE)
+anchor:SetPoint("CENTER", UIParent, "CENTER", 0, -150)
+anchor:SetClampedToScreen(true)
+anchor:SetMovable(true)
+
+local function StartMovingAnchor()
+    if not InCombatLockdown() then
+        anchor:StartMoving()
     end
 end
 
-local function CreateUseButton(cat)
-    local button = CreateFrame("Button", cat.buttonName, UIParent, "SecureActionButtonTemplate")
-    button:SetSize(36, 36)
-    button:SetPoint("CENTER", UIParent, "CENTER", cat.defaultX, -150)
-    button:SetClampedToScreen(true)
-    button:SetMovable(true)
+local function StopMovingAnchor()
+    anchor:StopMovingOrSizing()
+    local point, _, relPoint, x, y = anchor:GetPoint()
+    DB.anchor = { point, relPoint, x, y }
+end
+
+-- Drag handle shown above the buttons while they are unlocked
+local handle = CreateFrame("Frame", nil, anchor)
+handle:SetPoint("BOTTOMLEFT", anchor, "TOPLEFT", 0, 2)
+handle:SetPoint("BOTTOMRIGHT", anchor, "TOPRIGHT", 0, 2)
+handle:SetHeight(14)
+handle:EnableMouse(true)
+handle:RegisterForDrag("LeftButton")
+handle:SetScript("OnDragStart", StartMovingAnchor)
+handle:SetScript("OnDragStop", StopMovingAnchor)
+
+handle.bg = handle:CreateTexture(nil, "BACKGROUND")
+handle.bg:SetAllPoints()
+handle.bg:SetColorTexture(0, 0, 0, 0.6)
+
+handle.text = handle:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+handle.text:SetPoint("CENTER")
+handle.text:SetText("Drag")
+
+handle:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:SetText("Food Optimizer")
+    GameTooltip:AddLine("Drag to move the buttons.", 1, 1, 1)
+    GameTooltip:AddLine("Lock them in the /fo panel to hide this handle.", 0.7, 0.7, 0.7)
+    GameTooltip:Show()
+end)
+handle:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+local function RestorePosition()
+    local p = DB.anchor
+    anchor:ClearAllPoints()
+    if p then
+        anchor:SetPoint(p[1], UIParent, p[2], p[3], p[4])
+    else
+        anchor:SetPoint("CENTER", UIParent, "CENTER", 0, -150)
+    end
+end
+
+local function ApplyLock()
+    handle:SetShown(not DB.locked)
+end
+
+local function CreateUseButton(cat, index)
+    local button = CreateFrame("Button", cat.buttonName, anchor, "SecureActionButtonTemplate")
+    button:SetSize(BUTTON_SIZE, BUTTON_SIZE)
+    button:SetPoint("LEFT", (index - 1) * (BUTTON_SIZE + BUTTON_GAP), 0)
     -- "/click Button" sends only an up-click, but with the default ActionButtonUseKeyDown=1 the
     -- secure template ignores up-clicks. Forcing useOnKeyDown off makes it act on up-clicks
     -- (macros and mouse) regardless of that setting.
@@ -254,27 +303,26 @@ local function CreateUseButton(cat)
             GameTooltip:SetText("Food Optimizer - " .. cat.label)
             GameTooltip:AddLine("Nothing usable in your bags.", 1, 1, 1)
         end
-        GameTooltip:AddLine("Left-click to use. Right-drag to move. /fo to set the order.", 0.7, 0.7, 0.7)
+        GameTooltip:AddLine("Left-click to use. /fo to set the order.", 0.7, 0.7, 0.7)
+        if not DB.locked then
+            GameTooltip:AddLine("Right-drag to move.", 0.7, 0.7, 0.7)
+        end
         GameTooltip:Show()
     end)
     button:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-    button:SetScript("OnDragStart", function(self)
-        if not InCombatLockdown() then
-            self:StartMoving()
+    button:SetScript("OnDragStart", function()
+        if not DB.locked then
+            StartMovingAnchor()
         end
     end)
-    button:SetScript("OnDragStop", function(self)
-        self:StopMovingOrSizing()
-        local point, _, relPoint, x, y = self:GetPoint()
-        DB.points[cat.key] = { point, relPoint, x, y }
-    end)
+    button:SetScript("OnDragStop", StopMovingAnchor)
 
     buttons[cat.key] = button
 end
 
-for _, cat in ipairs(CATEGORIES) do
-    CreateUseButton(cat)
+for i, cat in ipairs(CATEGORIES) do
+    CreateUseButton(cat, i)
 end
 
 local function ApplyToButtons()
@@ -308,9 +356,7 @@ local function SetButtonsShown(shown)
         return false
     end
     DB.hidden = not shown
-    for _, button in pairs(buttons) do
-        button:SetShown(shown)
-    end
+    anchor:SetShown(shown)
     return true
 end
 
@@ -560,6 +606,17 @@ local showLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall
 showLabel:SetPoint("LEFT", showCheck, "RIGHT", 2, 0)
 showLabel:SetText("Show on-screen buttons")
 
+local lockCheck = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+lockCheck:SetSize(24, 24)
+lockCheck:SetPoint("BOTTOMLEFT", 190, 6)
+lockCheck:SetScript("OnClick", function(self)
+    DB.locked = self:GetChecked() and true or false
+    ApplyLock()
+end)
+local lockLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+lockLabel:SetPoint("LEFT", lockCheck, "RIGHT", 2, 0)
+lockLabel:SetText("Lock button position")
+
 RefreshPanel = function()
     if not panel:IsShown() then return end
     local cat = selectedCat
@@ -571,6 +628,7 @@ RefreshPanel = function()
     macroButton:SetText("Create " .. cat.label .. " macro")
     statHeader:SetText(cat.label == "Food" and "Qty / HP" or "Qty / Mana")
     showCheck:SetChecked(not DB.hidden)
+    lockCheck:SetChecked(DB.locked)
 
     local numUsable = 0
     for _, entry in ipairs(list) do
@@ -636,10 +694,11 @@ end
 local function InitDB()
     FoodOptimizerDB = FoodOptimizerDB or {}
     DB = FoodOptimizerDB
-    DB.point = nil -- position format from 1.0.0
+    -- Old position formats (buttons are now moved together via an anchor)
+    DB.point = nil
+    DB.points = nil
     DB.order = DB.order or {}
     DB.ignored = DB.ignored or {}
-    DB.points = DB.points or {}
     for _, cat in ipairs(CATEGORIES) do
         DB.order[cat.key] = DB.order[cat.key] or {}
         DB.ignored[cat.key] = DB.ignored[cat.key] or {}
@@ -658,10 +717,9 @@ events:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" then
         if arg1 ~= ADDON_NAME then return end
         InitDB()
-        for _, cat in ipairs(CATEGORIES) do
-            RestorePosition(cat)
-            buttons[cat.key]:SetShown(not DB.hidden)
-        end
+        RestorePosition()
+        ApplyLock()
+        anchor:SetShown(not DB.hidden)
     elseif event == "PLAYER_REGEN_ENABLED" then
         if pendingUpdate then
             Refresh()
@@ -696,13 +754,16 @@ SlashCmdList.FOODOPTIMIZER = function(msg)
             Print("Can't do that in combat.")
             return
         end
-        wipe(DB.points)
-        for _, cat in ipairs(CATEGORIES) do
-            RestorePosition(cat)
-        end
+        DB.anchor = nil
+        RestorePosition()
+    elseif cmd == "lock" or cmd == "unlock" then
+        DB.locked = (cmd == "lock")
+        ApplyLock()
+        RefreshPanel()
     else
         Print("/fo - open the order panel")
         Print("/fo show | hide - toggle the on-screen buttons")
-        Print("/fo reset - reset the button positions")
+        Print("/fo lock | unlock - lock or unlock the button position")
+        Print("/fo reset - reset the button position")
     end
 end
