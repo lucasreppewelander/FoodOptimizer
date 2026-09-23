@@ -223,9 +223,11 @@ local function CreateUseButton(cat)
     button:SetPoint("CENTER", UIParent, "CENTER", cat.defaultX, -150)
     button:SetClampedToScreen(true)
     button:SetMovable(true)
-    -- Down and up both registered so /click works regardless of the ActionButtonUseKeyDown setting;
-    -- the secure template only acts on the one matching that setting.
-    button:RegisterForClicks("AnyUp", "AnyDown")
+    -- "/click Button" sends only an up-click, but with the default ActionButtonUseKeyDown=1 the
+    -- secure template ignores up-clicks. Forcing useOnKeyDown off makes it act on up-clicks
+    -- (macros and mouse) regardless of that setting.
+    button:RegisterForClicks("AnyUp")
+    button:SetAttribute("useOnKeyDown", false)
     button:RegisterForDrag("RightButton")
     -- Only left click uses the item; right button is reserved for dragging
     button:SetAttribute("type1", "item")
