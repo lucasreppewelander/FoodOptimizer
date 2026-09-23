@@ -19,9 +19,11 @@ By default it eats the food you have the **fewest** of first. That stack runs ou
 
 ## Installation
 
-1. Download or clone this repository.
-2. Put the `FoodOptimizer` folder in `World of Warcraft/_classic_era_/Interface/AddOns/`.
+1. **[Download FoodOptimizer.zip](https://github.com/lucasreppewelander/FoodOptimizer/releases/latest/download/FoodOptimizer.zip)**
+2. Extract it into `World of Warcraft/_classic_era_/Interface/AddOns/`. You should end up with `AddOns/FoodOptimizer/FoodOptimizer.toc`.
 3. Restart the game or type `/reload`.
+
+Don't use GitHub's green **Code → Download ZIP** button. It names the folder `FoodOptimizer-main`, and WoW won't load the addon from a folder with that name.
 
 If the addon shows as out of date, tick **Load out of date AddOns** on the character select screen. You can also update the `## Interface:` line in `FoodOptimizer.toc` to your client's version. Run `/dump select(4, GetBuildInfo())` in game to find it.
 

@@ -9,6 +9,7 @@ local ADDON_NAME = ...
 
 local NUM_BAGS = NUM_BAG_SLOTS or 4
 local EMPTY_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
+local CONSUMABLE_CLASS_ID = (Enum and Enum.ItemClass and Enum.ItemClass.Consumable) or 0
 
 local CATEGORIES = {
     { key = "food",  label = "Food",  stat = "hp",   statLabel = "health",
@@ -56,6 +57,13 @@ local function ScanItem(bag, slot, itemID)
     local cached = itemCache[itemID]
     if cached ~= nil then
         return cached
+    end
+
+    -- Only consumables; recipes would otherwise match via the crafted item's tooltip
+    local classID = select(6, GetItemInfoInstant(itemID))
+    if classID ~= CONSUMABLE_CLASS_ID then
+        itemCache[itemID] = false
+        return false
     end
 
     scanTip:SetOwner(WorldFrame, "ANCHOR_NONE")
@@ -393,7 +401,7 @@ for i, cat in ipairs(CATEGORIES) do
 end
 
 local macroButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-macroButton:SetSize(110, 22)
+macroButton:SetSize(150, 22)
 macroButton:SetPoint("TOPRIGHT", -12, -30)
 macroButton:SetScript("OnClick", function() CreateOrUpdateMacro(selectedCat) end)
 
