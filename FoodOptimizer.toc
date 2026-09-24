@@ -2,7 +2,7 @@
 ## Title: Food Optimizer
 ## Notes: Eats the food you have the fewest of first (frees bag space), then the lowest-healing one.
 ## Author: lucas
-## Version: 1.2.3
+## Version: 1.2.4
 ## SavedVariables: FoodOptimizerDB
 ## SavedVariablesPerCharacter: FoodOptimizerCharDB
 

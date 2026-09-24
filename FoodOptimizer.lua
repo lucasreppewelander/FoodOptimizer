@@ -254,6 +254,7 @@ anchor:SetSize(#CATEGORIES * BUTTON_SIZE + (#CATEGORIES - 1) * BUTTON_GAP, BUTTO
 anchor:SetPoint("CENTER", UIParent, "CENTER", 0, -150)
 anchor:SetClampedToScreen(true)
 anchor:SetMovable(true)
+anchor:Hide() -- shown on login if enabled for this character
 
 local function StartMovingAnchor()
     if not InCombatLockdown() then
@@ -400,7 +401,7 @@ local function SetButtonsShown(shown)
         Print("Can't do that in combat.")
         return false
     end
-    CharDB.hidden = not shown
+    CharDB.shown = shown and true or false
     anchor:SetShown(shown)
     return true
 end
@@ -672,7 +673,7 @@ RefreshPanel = function()
     end
     macroButton:SetText("Create " .. cat.label .. " macro")
     statHeader:SetText(cat.label == "Food" and "Qty / HP" or "Qty / Mana")
-    showCheck:SetChecked(not CharDB.hidden)
+    showCheck:SetChecked(CharDB.shown)
     lockCheck:SetChecked(CharDB.locked)
 
     local numUsable = 0
@@ -758,10 +759,10 @@ local function InitDB()
     -- Button settings used to be account-wide; start each character from those once
     if not CharDB.initialized then
         CharDB.anchor = DB.anchor
-        CharDB.hidden = DB.hidden
         CharDB.locked = DB.locked
         CharDB.initialized = true
     end
+    CharDB.hidden = nil -- replaced by CharDB.shown (buttons are hidden by default)
 end
 
 -- What the saved variables looked like when each load event fired (for /fo debug)
@@ -772,9 +773,9 @@ local function Describe(tbl)
         return tostring(tbl)
     end
     local a = tbl.anchor
-    return string.format("table (anchor=%s, locked=%s, hidden=%s, initialized=%s)",
+    return string.format("table (anchor=%s, locked=%s, shown=%s, initialized=%s)",
         a and string.format("%s %.0f,%.0f", tostring(a[1]), a[3] or 0, a[4] or 0) or "nil",
-        tostring(tbl.locked), tostring(tbl.hidden), tostring(tbl.initialized))
+        tostring(tbl.locked), tostring(tbl.shown), tostring(tbl.initialized))
 end
 
 local function LogLoadState(event)
@@ -788,7 +789,8 @@ local function ApplyButtonSettings()
     if InCombatLockdown() then return end
     RestorePosition()
     ApplyLock()
-    anchor:SetShown(not CharDB.hidden)
+    -- Hidden unless turned on in the panel or with /fo show
+    anchor:SetShown(CharDB.shown == true)
 end
 
 local events = CreateFrame("Frame")

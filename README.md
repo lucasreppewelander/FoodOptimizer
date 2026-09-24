@@ -13,7 +13,7 @@ By default it eats the food you have the **fewest** of first. That stack runs ou
 - **Your own order:** open the panel with `/fo` and move items up or down with the arrows. Your order is saved.
 - **Never use an item:** untick **Use** to keep something out of rotation, such as buff food you're saving for a raid.
 - **Separate food and drink**, each with its own tab, button and macro.
-- **Movable on-screen buttons:** drag the handle above them to put them anywhere, then lock them in place from the panel.
+- **Optional on-screen buttons:** hidden by default. Turn them on in the panel or with `/fo show`. Drag the handle above them to put them anywhere, then lock them in place from the panel.
 - **Action bar macros:** one click creates a macro. The action bar button always shows the icon, tooltip and count of what it will eat next.
 
 ![Macro on the action bar](screenshots/macro-button.png)
