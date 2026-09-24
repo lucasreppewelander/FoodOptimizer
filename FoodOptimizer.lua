@@ -764,8 +764,36 @@ local function InitDB()
     end
 end
 
+-- What the saved variables looked like when each load event fired (for /fo debug)
+local loadLog = {}
+
+local function Describe(tbl)
+    if type(tbl) ~= "table" then
+        return tostring(tbl)
+    end
+    local a = tbl.anchor
+    return string.format("table (anchor=%s, locked=%s, hidden=%s, initialized=%s)",
+        a and string.format("%s %.0f,%.0f", tostring(a[1]), a[3] or 0, a[4] or 0) or "nil",
+        tostring(tbl.locked), tostring(tbl.hidden), tostring(tbl.initialized))
+end
+
+local function LogLoadState(event)
+    loadLog[#loadLog + 1] = string.format("%s: CharDB=%s, AccountDB=%s%s", event,
+        Describe(FoodOptimizerCharDB), type(FoodOptimizerDB),
+        (CharDB and FoodOptimizerCharDB ~= CharDB) and " (CharDB table was replaced)" or "")
+end
+
+-- Position, lock and visibility of the on-screen buttons
+local function ApplyButtonSettings()
+    if InCombatLockdown() then return end
+    RestorePosition()
+    ApplyLock()
+    anchor:SetShown(not CharDB.hidden)
+end
+
 local events = CreateFrame("Frame")
 events:RegisterEvent("ADDON_LOADED")
+events:RegisterEvent("PLAYER_LOGIN")
 events:RegisterEvent("PLAYER_ENTERING_WORLD")
 events:RegisterEvent("BAG_UPDATE_DELAYED")
 events:RegisterEvent("PLAYER_LEVEL_UP")
@@ -775,13 +803,18 @@ events:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 events:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" then
         if arg1 ~= ADDON_NAME then return end
+        LogLoadState(event)
         InitDB()
-        RestorePosition()
-        ApplyLock()
-        anchor:SetShown(not CharDB.hidden)
-    elseif event == "PLAYER_ENTERING_WORLD" then
+        ApplyButtonSettings()
+    elseif event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
+        LogLoadState(event)
+        -- If the client (re)assigned the saved variables after ADDON_LOADED, switch to its tables
+        if FoodOptimizerDB ~= DB or FoodOptimizerCharDB ~= CharDB then
+            InitDB()
+        end
         -- Re-apply after the UI has finished loading, in case anything moved the frame meanwhile
-        RestorePosition()
+        ApplyButtonSettings()
+        RefreshPanel()
         QueueRefresh()
     elseif event == "PLAYER_REGEN_ENABLED" then
         if pendingUpdate then
@@ -823,10 +856,19 @@ SlashCmdList.FOODOPTIMIZER = function(msg)
         CharDB.locked = (cmd == "lock")
         ApplyLock()
         RefreshPanel()
+    elseif cmd == "debug" then
+        for _, line in ipairs(loadLog) do
+            Print(line)
+        end
+        Print("Now: CharDB=" .. Describe(CharDB) .. ", same table as saved: " .. tostring(CharDB == FoodOptimizerCharDB))
+        local point, _, relPoint, x, y = anchor:GetPoint()
+        Print(string.format("Buttons at: %s/%s %.0f,%.0f, shown=%s, handle shown=%s",
+            tostring(point), tostring(relPoint), x or 0, y or 0, tostring(anchor:IsShown()), tostring(handle:IsShown())))
     else
         Print("/fo - open the order panel")
         Print("/fo show | hide - toggle the on-screen buttons")
         Print("/fo lock | unlock - lock or unlock the button position")
         Print("/fo reset - reset the button position")
+        Print("/fo debug - show how the saved settings were loaded")
     end
 end
