@@ -51,6 +51,7 @@ Position, show/hide and lock are saved per character. Food order and unticked it
 | `/fo show` / `/fo hide` | Show or hide the small on-screen buttons |
 | `/fo lock` / `/fo unlock` | Lock or unlock the on-screen buttons' position |
 | `/fo reset` | Move the on-screen buttons back to their default spot |
+| `/fo debug` | Open a window with details about how settings were loaded, which you can copy into a bug report |
 
 ### Manual macros
 
@@ -69,4 +70,4 @@ If you'd rather write the macros yourself:
 - WoW doesn't let addons use items on their own, so eating always needs a key press or click. The addon only picks *what* gets eaten.
 - Items that restore both health and mana (like Conjured Mana Biscuits) show up on both tabs. Untick them on the tab you don't want them used from.
 - Tooltip reading only works on English game clients.
-- Built for the Classic Era client (1.15.x).
+- Built for Classic clients 1.15.x and 1.60.x.

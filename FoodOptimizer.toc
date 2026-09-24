@@ -1,8 +1,8 @@
-## Interface: 11507, 11508
+## Interface: 11507, 11508, 16001
 ## Title: Food Optimizer
 ## Notes: Eats the food you have the fewest of first (frees bag space), then the lowest-healing one.
 ## Author: lucas
-## Version: 1.2.2
+## Version: 1.2.3
 ## SavedVariables: FoodOptimizerDB
 ## SavedVariablesPerCharacter: FoodOptimizerCharDB
 

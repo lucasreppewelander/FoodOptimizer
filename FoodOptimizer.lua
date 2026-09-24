@@ -836,6 +836,89 @@ end)
 -- Slash commands
 ---------------------------------------------------------------------------
 
+-- Copyable text window for /fo debug (chat text can't be selected)
+local debugFrame
+
+local function ShowDebugWindow(text)
+    if not debugFrame then
+        debugFrame = CreateFrame("Frame", "FoodOptimizerDebugFrame", UIParent, "BasicFrameTemplateWithInset")
+        debugFrame:SetSize(560, 340)
+        debugFrame:SetPoint("CENTER")
+        debugFrame:SetFrameStrata("DIALOG")
+        debugFrame:SetClampedToScreen(true)
+        debugFrame:SetMovable(true)
+        debugFrame:EnableMouse(true)
+        debugFrame:RegisterForDrag("LeftButton")
+        debugFrame:SetScript("OnDragStart", debugFrame.StartMoving)
+        debugFrame:SetScript("OnDragStop", debugFrame.StopMovingOrSizing)
+        tinsert(UISpecialFrames, "FoodOptimizerDebugFrame")
+
+        local title = debugFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        title:SetPoint("TOP", 0, -5)
+        title:SetText("Food Optimizer - Debug")
+
+        local scroll = CreateFrame("ScrollFrame", "FoodOptimizerDebugScroll", debugFrame, "UIPanelScrollFrameTemplate")
+        scroll:SetPoint("TOPLEFT", 12, -30)
+        scroll:SetPoint("BOTTOMRIGHT", -32, 34)
+
+        local edit = CreateFrame("EditBox", nil, scroll)
+        edit:SetMultiLine(true)
+        edit:SetAutoFocus(false)
+        edit:SetFontObject(ChatFontNormal)
+        edit:SetWidth(510)
+        edit:SetScript("OnEscapePressed", function() debugFrame:Hide() end)
+        -- Read-only: put the text back if it gets edited
+        edit:SetScript("OnTextChanged", function(self, userInput)
+            if userInput then
+                self:SetText(debugFrame.text)
+                self:HighlightText()
+            end
+        end)
+        scroll:SetScrollChild(edit)
+        debugFrame.edit = edit
+
+        local hint = debugFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        hint:SetPoint("BOTTOM", 0, 14)
+        hint:SetText("The text is selected - press Cmd+C (Mac) or Ctrl+C (Windows) to copy it.")
+    end
+
+    debugFrame.text = text
+    debugFrame.edit:SetText(text)
+    debugFrame:Show()
+    debugFrame.edit:SetFocus()
+    debugFrame.edit:HighlightText()
+end
+
+local function BuildDebugText()
+    local lines = {}
+    local function add(fmt, ...)
+        lines[#lines + 1] = string.format(fmt, ...)
+    end
+
+    local version, build, _, tocVersion = GetBuildInfo()
+    add("Client: %s (build %s), interface %s", tostring(version), tostring(build), tostring(tocVersion))
+
+    local getMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+    local getInfo = (C_AddOns and C_AddOns.GetAddOnInfo) or GetAddOnInfo
+    if getInfo then
+        local _, _, _, loadable, reason = getInfo(ADDON_NAME)
+        add("Addon: version %s, loadable=%s, reason=%s", tostring(getMetadata and getMetadata(ADDON_NAME, "Version")),
+            tostring(loadable), tostring(reason))
+    end
+    add("Character: %s - %s", tostring(UnitName("player")), tostring(GetRealmName()))
+
+    for _, line in ipairs(loadLog) do
+        add("%s", line)
+    end
+    add("Now: CharDB=%s, same table as saved: %s", Describe(CharDB), tostring(CharDB == FoodOptimizerCharDB))
+
+    local point, _, relPoint, x, y = anchor:GetPoint()
+    add("Buttons at: %s/%s %.0f,%.0f, shown=%s, handle shown=%s",
+        tostring(point), tostring(relPoint), x or 0, y or 0, tostring(anchor:IsShown()), tostring(handle:IsShown()))
+
+    return table.concat(lines, "\n")
+end
+
 SLASH_FOODOPTIMIZER1 = "/fo"
 SLASH_FOODOPTIMIZER2 = "/foodoptimizer"
 SlashCmdList.FOODOPTIMIZER = function(msg)
@@ -857,13 +940,7 @@ SlashCmdList.FOODOPTIMIZER = function(msg)
         ApplyLock()
         RefreshPanel()
     elseif cmd == "debug" then
-        for _, line in ipairs(loadLog) do
-            Print(line)
-        end
-        Print("Now: CharDB=" .. Describe(CharDB) .. ", same table as saved: " .. tostring(CharDB == FoodOptimizerCharDB))
-        local point, _, relPoint, x, y = anchor:GetPoint()
-        Print(string.format("Buttons at: %s/%s %.0f,%.0f, shown=%s, handle shown=%s",
-            tostring(point), tostring(relPoint), x or 0, y or 0, tostring(anchor:IsShown()), tostring(handle:IsShown())))
+        ShowDebugWindow(BuildDebugText())
     else
         Print("/fo - open the order panel")
         Print("/fo show | hide - toggle the on-screen buttons")
