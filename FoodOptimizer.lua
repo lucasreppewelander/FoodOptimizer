@@ -50,12 +50,32 @@ local scanTip = CreateFrame("GameTooltip", "FoodOptimizerScanTooltip", nil, "Gam
 
 -- itemID -> { hp = number|nil, mana = number|nil, reqLevel = number|nil }, or false if neither
 local itemCache = {}
+-- itemID -> number of scans that found an incomplete tooltip
+local incompleteScans = {}
+-- Right after login the "Use:" text may not be loaded yet; after this many tries, give up on the item
+local MAX_INCOMPLETE_SCANS = 10
+
+local RequestLoadItemData = C_Item and C_Item.RequestLoadItemDataByID
+
+-- Called when an item's tooltip isn't complete yet. Returns nil (retry later) until the item
+-- has been retried too often; then false for this scan, without caching, so the next bag
+-- change tries again.
+local function Incomplete(itemID)
+    local tries = (incompleteScans[itemID] or 0) + 1
+    incompleteScans[itemID] = tries
+    if tries < MAX_INCOMPLETE_SCANS then
+        return nil
+    end
+    incompleteScans[itemID] = nil
+    return false
+end
 
 local function ParseNumber(s)
     return tonumber((s:gsub(",", "")))
 end
 
--- Returns the cached entry, false if not food/drink, or nil if the tooltip isn't loaded yet.
+-- Returns the cached entry, false if not food/drink, or nil if the item data isn't loaded yet
+-- (in which case it is requested and the caller should retry later).
 local function ScanItem(bag, slot, itemID)
     local cached = itemCache[itemID]
     if cached ~= nil then
@@ -69,20 +89,31 @@ local function ScanItem(bag, slot, itemID)
         return false
     end
 
+    -- On a fresh login item data isn't cached yet and the tooltip comes back incomplete
+    if not GetItemInfo(itemID) then
+        if RequestLoadItemData then
+            RequestLoadItemData(itemID)
+        end
+        return Incomplete(itemID)
+    end
+
     scanTip:SetOwner(WorldFrame, "ANCHOR_NONE")
     scanTip:ClearLines()
     scanTip:SetBagItem(bag, slot)
 
     local numLines = scanTip:NumLines()
     if numLines == 0 then
-        return nil
+        return Incomplete(itemID)
     end
 
-    local hp, mana, reqLevel
+    local hp, mana, reqLevel, hasUseLine
     for i = 2, numLines do
         local fontString = _G["FoodOptimizerScanTooltipTextLeft" .. i]
         local text = fontString and fontString:GetText()
         if text then
+            if text:find("^Use:") then
+                hasUseLine = true
+            end
             -- "Use: Restores 61 health over 18 sec."
             -- "Use: Restores 151 mana over 21 sec."
             -- "Use: Restores 2148 health and 4410 mana over 30 sec."
@@ -100,6 +131,12 @@ local function ScanItem(bag, slot, itemID)
         end
     end
     scanTip:Hide()
+
+    -- The "Use:" text (from spell data) can load later than the item itself
+    if not hasUseLine then
+        return Incomplete(itemID)
+    end
+    incompleteScans[itemID] = nil
 
     local result = (hp or mana) and { hp = hp, mana = mana, reqLevel = reqLevel } or false
     itemCache[itemID] = result
@@ -696,6 +733,10 @@ local function QueueRefresh(delay)
     C_Timer.After(delay or 0.2, function()
         refreshQueued = false
         Refresh()
+        -- Keep retrying while some tooltips are still incomplete (item/spell data loading)
+        if waitingForItemInfo then
+            QueueRefresh(1)
+        end
     end)
 end
 
