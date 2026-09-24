@@ -18,7 +18,8 @@ local CATEGORIES = {
       buttonName = "FoodOptimizerDrinkButton", macroName = "FO Drink" },
 }
 
-local DB -- FoodOptimizerDB, set on ADDON_LOADED
+local DB     -- FoodOptimizerDB (account-wide: food order, ignored items), set on ADDON_LOADED
+local CharDB -- FoodOptimizerCharDB (per character: button position, shown, locked)
 
 local function Print(msg)
     DEFAULT_CHAT_FRAME:AddMessage("|cff66ff66Food Optimizer:|r " .. msg)
@@ -226,7 +227,10 @@ end
 local function StopMovingAnchor()
     anchor:StopMovingOrSizing()
     local point, _, relPoint, x, y = anchor:GetPoint()
-    DB.anchor = { point, relPoint, x, y }
+    CharDB.anchor = { point, relPoint, x, y }
+    -- StartMoving marks the frame user-placed, which makes WoW also store its position in the
+    -- character's layout cache and re-apply it at login, fighting our saved position.
+    anchor:SetUserPlaced(false)
 end
 
 -- Drag handle shown above the buttons while they are unlocked
@@ -257,7 +261,9 @@ end)
 handle:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
 local function RestorePosition()
-    local p = DB.anchor
+    if InCombatLockdown() then return end
+    local p = CharDB.anchor
+    anchor:SetUserPlaced(false)
     anchor:ClearAllPoints()
     if p then
         anchor:SetPoint(p[1], UIParent, p[2], p[3], p[4])
@@ -267,7 +273,7 @@ local function RestorePosition()
 end
 
 local function ApplyLock()
-    handle:SetShown(not DB.locked)
+    handle:SetShown(not CharDB.locked)
 end
 
 local function CreateUseButton(cat, index)
@@ -306,7 +312,7 @@ local function CreateUseButton(cat, index)
             GameTooltip:AddLine("Nothing usable in your bags.", 1, 1, 1)
         end
         GameTooltip:AddLine("Left-click to use. /fo to set the order.", 0.7, 0.7, 0.7)
-        if not DB.locked then
+        if not CharDB.locked then
             GameTooltip:AddLine("Right-drag to move.", 0.7, 0.7, 0.7)
         end
         GameTooltip:Show()
@@ -314,7 +320,7 @@ local function CreateUseButton(cat, index)
     button:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
     button:SetScript("OnDragStart", function()
-        if not DB.locked then
+        if not CharDB.locked then
             StartMovingAnchor()
         end
     end)
@@ -357,7 +363,7 @@ local function SetButtonsShown(shown)
         Print("Can't do that in combat.")
         return false
     end
-    DB.hidden = not shown
+    CharDB.hidden = not shown
     anchor:SetShown(shown)
     return true
 end
@@ -612,7 +618,7 @@ local lockCheck = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate"
 lockCheck:SetSize(24, 24)
 lockCheck:SetPoint("BOTTOMLEFT", 190, 6)
 lockCheck:SetScript("OnClick", function(self)
-    DB.locked = self:GetChecked() and true or false
+    CharDB.locked = self:GetChecked() and true or false
     ApplyLock()
 end)
 local lockLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -629,8 +635,8 @@ RefreshPanel = function()
     end
     macroButton:SetText("Create " .. cat.label .. " macro")
     statHeader:SetText(cat.label == "Food" and "Qty / HP" or "Qty / Mana")
-    showCheck:SetChecked(not DB.hidden)
-    lockCheck:SetChecked(DB.locked)
+    showCheck:SetChecked(not CharDB.hidden)
+    lockCheck:SetChecked(CharDB.locked)
 
     local numUsable = 0
     for _, entry in ipairs(list) do
@@ -705,6 +711,16 @@ local function InitDB()
         DB.order[cat.key] = DB.order[cat.key] or {}
         DB.ignored[cat.key] = DB.ignored[cat.key] or {}
     end
+
+    FoodOptimizerCharDB = FoodOptimizerCharDB or {}
+    CharDB = FoodOptimizerCharDB
+    -- Button settings used to be account-wide; start each character from those once
+    if not CharDB.initialized then
+        CharDB.anchor = DB.anchor
+        CharDB.hidden = DB.hidden
+        CharDB.locked = DB.locked
+        CharDB.initialized = true
+    end
 end
 
 local events = CreateFrame("Frame")
@@ -721,7 +737,11 @@ events:SetScript("OnEvent", function(_, event, arg1)
         InitDB()
         RestorePosition()
         ApplyLock()
-        anchor:SetShown(not DB.hidden)
+        anchor:SetShown(not CharDB.hidden)
+    elseif event == "PLAYER_ENTERING_WORLD" then
+        -- Re-apply after the UI has finished loading, in case anything moved the frame meanwhile
+        RestorePosition()
+        QueueRefresh()
     elseif event == "PLAYER_REGEN_ENABLED" then
         if pendingUpdate then
             Refresh()
@@ -756,10 +776,10 @@ SlashCmdList.FOODOPTIMIZER = function(msg)
             Print("Can't do that in combat.")
             return
         end
-        DB.anchor = nil
+        CharDB.anchor = nil
         RestorePosition()
     elseif cmd == "lock" or cmd == "unlock" then
-        DB.locked = (cmd == "lock")
+        CharDB.locked = (cmd == "lock")
         ApplyLock()
         RefreshPanel()
     else

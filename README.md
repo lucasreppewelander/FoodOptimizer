@@ -41,6 +41,8 @@ The addon keeps the macros up to date as your bags change. Macros can't be chang
 
 While the buttons are unlocked, a **Drag** handle sits above them. Left-drag the handle, or right-drag either button, to move both buttons together. Tick **Lock button position** in the panel, or type `/fo lock`, to hide the handle and keep them in place. You can't move them during combat.
 
+Position, show/hide and lock are saved per character. Food order and unticked items are shared by all your characters.
+
 ### Slash commands
 
 | Command | Description |
